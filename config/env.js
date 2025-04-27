@@ -6,6 +6,6 @@ export const {
   PORT,  // Port for the server to listen on
   JWT_EXPIRES_IN, // JWT expiration time
   JWT_SECRET, // JWT secret key
-  MONGODB_URI, // MongoDB connection URI
-  
+  DB_URI, // MongoDB connection URI
+  NODE_ENV, 
 } = process.env;

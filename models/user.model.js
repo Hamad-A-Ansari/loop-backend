@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import validator from "validator";
 
 const userSchema = new mongoose.Schema({
   name: {
@@ -20,6 +21,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, "User Password is required"],
     minlength: [6, "User Password must be at least 6 characters long"],
+    select: false,
   },
 }, { timestamps: true });
 
