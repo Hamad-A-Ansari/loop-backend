@@ -2,15 +2,17 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import connectToDatabase from './database/mongodb.js';
+import cors from 'cors';
 
 //Import Routes
 import importRouter from './routes/csvImport.routes.js';
 import reportRoutes from './routes/report.routes.js';
-
+import authRouter from './routes/auth.routes.js';
 
 //Import Middlewares
 import errorMiddleware from './middlewares/error.middleware.js';
 import arcjetMiddleware from './middlewares/arcjet.middleware.js';
+import authorize from './middlewares/auth.middleware.js';
 
 //Import Config
 import { PORT } from './config/env.js';
@@ -19,6 +21,8 @@ import { PORT } from './config/env.js';
 // Starting point
 const app = express();
 
+// Setup Cors
+app.use(cors())
 
 //Middlewares to parse JSON requests
 app.use(express.json());
@@ -30,7 +34,15 @@ app.use(cookieParser());
 app.use(arcjetMiddleware);
 
 
-// API routes
+// Public API Routes
+app.use('/api/v1/auth', authRouter);
+
+
+// Routes Protection
+app.use(authorize);
+
+
+// Protected API routes
 app.use('/api/v1/importCsv', importRouter)
 app.use('/api/v1/reports', reportRoutes);
 
@@ -45,10 +57,11 @@ app.get('/api/v1/', (req, res) => {
 
 
 app.listen(PORT, async() => {
+  await connectToDatabase();
+  
   console.log('Server is running on port:', PORT);
   console.log('Environment:', process.env.NODE_ENV || 'development');
 
-  await connectToDatabase();
 });
 
 export default app;

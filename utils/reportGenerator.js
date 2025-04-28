@@ -7,16 +7,19 @@ import Timezone from '../models/timezone.model.js';
 import Report from '../models/report.model.js';
 import moment from 'moment-timezone'; // You will need this
 
+
+/*
+getBusinessHours ->
+
+*/
+
+
 const getBusinessHours = async (storeId, date, timezone) => {
   const menuHours = await MenuHours.find({ store_id: storeId });
-
-  // get day name like "Monday"
   const dayName = moment(date).tz(timezone).format('dddd').toLowerCase();
-
   const todaysHours = menuHours.find(mh => mh.day.toLowerCase() === dayName);
-  if (!todaysHours) {
-    return null;
-  }
+
+  if (!todaysHours) return null;
 
   return {
     start: todaysHours.start_time_local,
@@ -33,13 +36,17 @@ const generateCSVReport = async (reportId) => {
       const timezoneData = await Timezone.findOne({ store_id: storeId });
       const timezone = timezoneData ? timezoneData.timezone_str : 'America/Chicago';
       
-      const statusData = await StoreStatus.find({ store_id: storeId }).sort({ timestamp_utc: 1 });
+      const currentTime = moment.utc();
+
+      // Fetch status data for last 7 days only (optimization)
+      const sevenDaysAgo = moment.utc().subtract(7, 'days');
+      const statusData = await StoreStatus.find({
+        store_id: storeId,
+        timestamp_utc: { $gte: sevenDaysAgo.toDate() }
+      }).sort({ timestamp_utc: 1 });
+
       if (statusData.length === 0) continue;
 
-      const currentTimeUTC = statusData[statusData.length - 1]?.timestamp_utc;
-      const currentTime = moment.utc(currentTimeUTC);
-
-      // Define time ranges
       const lastHourStart = moment(currentTime).subtract(1, 'hours');
       const lastDayStart = moment(currentTime).subtract(1, 'days');
       const lastWeekStart = moment(currentTime).subtract(7, 'days');
@@ -47,10 +54,9 @@ const generateCSVReport = async (reportId) => {
       const computeUptimeDowntime = async (startTime, endTime) => {
         const statuses = statusData.filter(status => {
           const timestamp = moment.utc(status.timestamp_utc);
-          return timestamp.isBetween(startTime, endTime);
+          return timestamp.isSameOrAfter(startTime) && timestamp.isBefore(endTime);
         });
 
-        // No statuses? Assume downtime
         if (statuses.length === 0) {
           const minutes = moment.duration(endTime.diff(startTime)).asMinutes();
           return { uptime: 0, downtime: minutes };
@@ -58,14 +64,14 @@ const generateCSVReport = async (reportId) => {
 
         let uptimeMinutes = 0;
         let downtimeMinutes = 0;
-        let lastStatus = statuses[0].status; // Assume starting with first status
+        let lastStatus = statuses[0].status;
         let lastTimestamp = moment.utc(statuses[0].timestamp_utc);
 
         for (let i = 1; i < statuses.length; i++) {
           const current = statuses[i];
           const currentTimestamp = moment.utc(current.timestamp_utc);
+          const minutesBetween = moment.duration(currentTimestamp.diff(lastTimestamp)).asMinutes();
 
-          let minutesBetween = moment.duration(currentTimestamp.diff(lastTimestamp)).asMinutes();
           if (lastStatus === 'active') {
             uptimeMinutes += minutesBetween;
           } else {
@@ -76,8 +82,7 @@ const generateCSVReport = async (reportId) => {
           lastTimestamp = currentTimestamp;
         }
 
-        // Handle time between last status and endTime
-        let finalGap = moment.duration(endTime.diff(lastTimestamp)).asMinutes();
+        const finalGap = moment.duration(endTime.diff(lastTimestamp)).asMinutes();
         if (lastStatus === 'active') {
           uptimeMinutes += finalGap;
         } else {
@@ -94,8 +99,8 @@ const generateCSVReport = async (reportId) => {
       reportData.push({
         store_id: storeId,
         uptime_last_hour: Math.round(lastHourMetrics.uptime),
-        uptime_last_day: Math.round(lastDayMetrics.uptime / 60), // minutes -> hours
-        uptime_last_week: Math.round(lastWeekMetrics.uptime / 60), // minutes -> hours
+        uptime_last_day: Math.round(lastDayMetrics.uptime / 60),
+        uptime_last_week: Math.round(lastWeekMetrics.uptime / 60),
         downtime_last_hour: Math.round(lastHourMetrics.downtime),
         downtime_last_day: Math.round(lastDayMetrics.downtime / 60),
         downtime_last_week: Math.round(lastWeekMetrics.downtime / 60)
@@ -119,13 +124,14 @@ const generateCSVReport = async (reportId) => {
       fs.mkdirSync('reports');
     }
 
-    const filePath = `./generated/report_${reportId}.csv`;
-    fs.writeFileSync(filePath, csv);
+    const filePath = `./reports/report_${reportId}.csv`;
+    fs.writeFileSync(filePath, csv); // overwrites if already present
 
     await Report.findOneAndUpdate(
       { report_id: reportId },
       { status: 'Complete', csvPath: filePath }
     );
+
   } catch (error) {
     console.error('Error generating report:', error);
   }
