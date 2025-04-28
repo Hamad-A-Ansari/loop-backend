@@ -64,3 +64,6 @@ typings/
 
 # personal notes
 notes.md 
+
+# ignore CSV files (as it is greater than 100MB for commit)
+*.csv

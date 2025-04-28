@@ -6,6 +6,9 @@ import errorMiddleware from './middlewares/error.middleware.js';
 
 //Import Routes
 import importRouter from './routes/csvImport.routes.js';
+import reportRoutes from './routes/report.routes.js';
+
+
 
 const app = express();
 
@@ -23,6 +26,7 @@ app.use(errorMiddleware);
 
 // API routes
 app.use('/api/v1/importCsv', importRouter)
+app.use('/api/v1/reports', reportRoutes);
 
 
 app.get('/api/v1/', (req, res) => {
