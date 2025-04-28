@@ -7,5 +7,8 @@ export const {
   JWT_EXPIRES_IN, // JWT expiration time
   JWT_SECRET, // JWT secret key
   DB_URI, // MongoDB connection URI
-  NODE_ENV, 
+  NODE_ENV,
+  ARCJET_KEY,
+  ARCJET_ENV,
+
 } = process.env;
