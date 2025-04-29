@@ -1,145 +1,148 @@
-import { v4 as uuidv4 } from 'uuid';
-import { Parser } from 'json2csv';
+// utils/reportGenerator.js
+
 import fs from 'fs';
-import MenuHours from '../models/menuHours.model.js';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import moment from 'moment';
 import StoreStatus from '../models/storeStatus.model.js';
-import Timezone from '../models/timezone.model.js';
+import StoreHours from '../models/storeHours.model.js';
 import Report from '../models/report.model.js';
-import moment from 'moment-timezone'; // You will need this
+import { writeReportCSV } from './csvWriter.js';
 
+export const triggerReportGeneration = async (storeId = null) => {
+  const report_id = uuidv4();
+  const csvPath = path.join('reports', `report_${report_id}.csv`);
 
-/*
-getBusinessHours ->
+  // Save report initial state to DB
+  const report = await Report.create({
+    report_id,
+    status: 'Running',
+    csvPath
+  });
 
-*/
+  process.nextTick(async () => {
+    try {
+      const filters = storeId ? { store_id: storeId } : {};
 
+      // Get max timestamp_utc to use as fixed current time
+      const maxTimestamp = await StoreStatus.findOne(filters).sort({ timestamp_utc: -1 });
+      const currentTime = moment.utc(maxTimestamp?.timestamp_utc);
 
-const getBusinessHours = async (storeId, date, timezone) => {
-  const menuHours = await MenuHours.find({ store_id: storeId });
-  const dayName = moment(date).tz(timezone).format('dddd').toLowerCase();
-  const todaysHours = menuHours.find(mh => mh.day.toLowerCase() === dayName);
+      const allStatus = await StoreStatus.find(filters);
 
-  if (!todaysHours) return null;
-
-  return {
-    start: todaysHours.start_time_local,
-    end: todaysHours.end_time_local
-  };
-};
-
-const generateCSVReport = async (reportId) => {
-  try {
-    const stores = await StoreStatus.distinct('store_id');
-    const reportData = [];
-
-    for (const storeId of stores) {
-      const timezoneData = await Timezone.findOne({ store_id: storeId });
-      const timezone = timezoneData ? timezoneData.timezone_str : 'America/Chicago';
-      
-      const currentTime = moment.utc();
-
-      // Fetch status data for last 7 days only (optimization)
-      const sevenDaysAgo = moment.utc().subtract(7, 'days');
-      const statusData = await StoreStatus.find({
-        store_id: storeId,
-        timestamp_utc: { $gte: sevenDaysAgo.toDate() }
-      }).sort({ timestamp_utc: 1 });
-
-      if (statusData.length === 0) continue;
-
-      const lastHourStart = moment(currentTime).subtract(1, 'hours');
-      const lastDayStart = moment(currentTime).subtract(1, 'days');
-      const lastWeekStart = moment(currentTime).subtract(7, 'days');
-
-      const computeUptimeDowntime = async (startTime, endTime) => {
-        const statuses = statusData.filter(status => {
-          const timestamp = moment.utc(status.timestamp_utc);
-          return timestamp.isSameOrAfter(startTime) && timestamp.isBefore(endTime);
-        });
-
-        if (statuses.length === 0) {
-          const minutes = moment.duration(endTime.diff(startTime)).asMinutes();
-          return { uptime: 0, downtime: minutes };
-        }
-
-        let uptimeMinutes = 0;
-        let downtimeMinutes = 0;
-        let lastStatus = statuses[0].status;
-        let lastTimestamp = moment.utc(statuses[0].timestamp_utc);
-
-        for (let i = 1; i < statuses.length; i++) {
-          const current = statuses[i];
-          const currentTimestamp = moment.utc(current.timestamp_utc);
-          const minutesBetween = moment.duration(currentTimestamp.diff(lastTimestamp)).asMinutes();
-
-          if (lastStatus === 'active') {
-            uptimeMinutes += minutesBetween;
-          } else {
-            downtimeMinutes += minutesBetween;
-          }
-
-          lastStatus = current.status;
-          lastTimestamp = currentTimestamp;
-        }
-
-        const finalGap = moment.duration(endTime.diff(lastTimestamp)).asMinutes();
-        if (lastStatus === 'active') {
-          uptimeMinutes += finalGap;
-        } else {
-          downtimeMinutes += finalGap;
-        }
-
-        return { uptime: uptimeMinutes, downtime: downtimeMinutes };
-      };
-
-      const lastHourMetrics = await computeUptimeDowntime(lastHourStart, currentTime);
-      const lastDayMetrics = await computeUptimeDowntime(lastDayStart, currentTime);
-      const lastWeekMetrics = await computeUptimeDowntime(lastWeekStart, currentTime);
-
-      reportData.push({
-        store_id: storeId,
-        uptime_last_hour: Math.round(lastHourMetrics.uptime),
-        uptime_last_day: Math.round(lastDayMetrics.uptime / 60),
-        uptime_last_week: Math.round(lastWeekMetrics.uptime / 60),
-        downtime_last_hour: Math.round(lastHourMetrics.downtime),
-        downtime_last_day: Math.round(lastDayMetrics.downtime / 60),
-        downtime_last_week: Math.round(lastWeekMetrics.downtime / 60)
+      const grouped = {};
+      allStatus.forEach(entry => {
+        const store = entry.store_id;
+        if (!grouped[store]) grouped[store] = [];
+        grouped[store].push(entry);
       });
+
+      const finalReport = [];
+
+      for (const [storeId, statuses] of Object.entries(grouped)) {
+        const hours = await StoreHours.find({ store_id: storeId });
+        const businessHours = mapBusinessHours(hours);
+
+        const { uptimeLastHour, uptimeLastDay, downtimeLastHour, downtimeLastDay, uptimeLastWeek, downtimeLastWeek } =
+          computeUptimeDowntime(statuses, businessHours, currentTime);
+
+        finalReport.push({
+          store_id: storeId,
+          uptime_last_hour: uptimeLastHour.toFixed(2),
+          uptime_last_day: uptimeLastDay.toFixed(2),
+          uptime_last_week: uptimeLastWeek.toFixed(2),
+          downtime_last_hour: downtimeLastHour.toFixed(2),
+          downtime_last_day: downtimeLastDay.toFixed(2),
+          downtime_last_week: downtimeLastWeek.toFixed(2),
+        });
+      }
+
+      await writeReportCSV(csvPath, finalReport);
+      await Report.findOneAndUpdate({ report_id }, { status: 'Complete' });
+
+    } catch (err) {
+      console.error('Report generation failed:', err);
+      await Report.findOneAndUpdate({ report_id }, { status: 'Failed' });
     }
+  });
 
-    const fields = [
-      'store_id',
-      'uptime_last_hour',
-      'uptime_last_day',
-      'uptime_last_week',
-      'downtime_last_hour',
-      'downtime_last_day',
-      'downtime_last_week'
-    ];
+  return report_id;
+};
 
-    const parser = new Parser({ fields });
-    const csv = parser.parse(reportData);
-
-    if (!fs.existsSync('reports')) {
-      fs.mkdirSync('reports');
-    }
-
-    const filePath = `./reports/report_${reportId}.csv`;
-    fs.writeFileSync(filePath, csv); // overwrites if already present
-
-    await Report.findOneAndUpdate(
-      { report_id: reportId },
-      { status: 'Complete', csvPath: filePath }
-    );
-
-  } catch (error) {
-    console.error('Error generating report:', error);
+function mapBusinessHours(hours) {
+  const map = {};
+  for (const h of hours) {
+    map[h.day] = { start: h.start_time_local, end: h.end_time_local };
   }
-};
+  return map;
+}
 
-export const triggerReportGeneration = async () => {
-  const reportId = uuidv4();
-  await Report.create({ report_id: reportId, status: 'Running' });
-  generateCSVReport(reportId);
-  return reportId;
-};
+function computeUptimeDowntime(statuses, businessHours, currentTime) {
+  const periods = [
+    { label: 'LastHour', start: moment.utc(currentTime).subtract(1, 'hour') },
+    { label: 'LastDay', start: moment.utc(currentTime).subtract(1, 'day') },
+    { label: 'LastWeek', start: moment.utc(currentTime).subtract(7, 'days') },
+  ];
+
+  const result = {
+    uptimeLastHour: 0,
+    downtimeLastHour: 0,
+    uptimeLastDay: 0,
+    downtimeLastDay: 0,
+    uptimeLastWeek: 0,
+    downtimeLastWeek: 0,
+  };
+
+  for (const { label, start } of periods) {
+    const windowStatuses = statuses
+      .filter(s => {
+        const t = moment.utc(s.timestamp_utc);
+        return t.isBetween(start, currentTime, null, '[)');
+      })
+      .sort((a, b) => new Date(a.timestamp_utc) - new Date(b.timestamp_utc));
+
+    let totalUptime = 0;
+    let totalDowntime = 0;
+
+    if (windowStatuses.length === 0) continue;
+
+    for (let i = 0; i < windowStatuses.length - 1; i++) {
+      const current = windowStatuses[i];
+      const next = windowStatuses[i + 1];
+
+      const from = moment.utc(current.timestamp_utc);
+      const to = moment.utc(next.timestamp_utc);
+
+      const isOpen = isWithinBusinessHours(from, businessHours);
+      if (!isOpen) continue;
+
+      const diffMin = to.diff(from, 'minutes');
+
+      if (current.status === 'active') totalUptime += diffMin;
+      else totalDowntime += diffMin;
+    }
+
+    // Fill gap from last status to currentTime
+    const last = windowStatuses[windowStatuses.length - 1];
+    const lastTime = moment.utc(last.timestamp_utc);
+    if (lastTime.isBefore(currentTime) && isWithinBusinessHours(lastTime, businessHours)) {
+      const diffMin = currentTime.diff(lastTime, 'minutes');
+      if (last.status === 'active') totalUptime += diffMin;
+      else totalDowntime += diffMin;
+    }
+
+    result[`uptime${label}`] = totalUptime;
+    result[`downtime${label}`] = totalDowntime;
+  }
+
+  return result;
+}
+
+function isWithinBusinessHours(time, businessHours) {
+  const day = time.day();
+  const dayHours = businessHours[day];
+  if (!dayHours) return true; // assume 24x7 if missing
+
+  const timeStr = time.format('HH:mm:ss');
+  return timeStr >= dayHours.start && timeStr <= dayHours.end;
+}
