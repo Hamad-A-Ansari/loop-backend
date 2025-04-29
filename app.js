@@ -38,13 +38,12 @@ app.use(arcjetMiddleware);
 app.use('/api/v1/auth', authRouter);
 
 
-// Routes Protection
-app.use(authorize);
+
 
 
 // Protected API routes
-app.use('/api/v1/importCsv', importRouter)
-app.use('/api/v1/reports', reportRoutes);
+app.use('/api/v1/importCsv', authorize, importRouter)
+app.use('/api/v1/reports', authorize, reportRoutes);
 
 
 //Middleware for Error handling
