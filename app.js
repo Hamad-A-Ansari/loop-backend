@@ -6,7 +6,7 @@ import cors from 'cors';
 
 //Import Routes
 import importRouter from './routes/csvImport.routes.js';
-import reportRoutes from './routes/report.routes.js';
+import reportRouter from './routes/report.routes.js';
 import authRouter from './routes/auth.routes.js';
 
 //Import Middlewares
@@ -42,8 +42,8 @@ app.use('/api/v1/auth', authRouter);
 
 
 // Protected API routes
-app.use('/api/v1/importCsv', authorize, importRouter)
-app.use('/api/v1/reports', authorize, reportRoutes);
+app.use('/api/v1/importCsv', importRouter)
+app.use('/api/v1/reports', reportRouter);
 
 
 //Middleware for Error handling

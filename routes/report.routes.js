@@ -1,11 +1,11 @@
 import express from 'express';
 import { triggerReport, getReport } from '../controllers/report.controller.js';
 
-const router = express.Router();
+const reportRouter = express.Router();
 
-router.post('/trigger_report', triggerReport);
-router.get('/get_report', getReport);
+reportRouter.post('/trigger_report', triggerReport);
+reportRouter.get('/get_report', getReport);
 
 
 
-export default router;
+export default reportRouter;
