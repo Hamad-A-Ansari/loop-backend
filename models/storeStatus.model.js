@@ -10,7 +10,7 @@ const storeStatusSchema = new mongoose.Schema({
     required: true 
   }, // active/inactive
   timestamp_utc: { 
-    type: String, 
+    type: Date, 
     required: true }, // Date in UTC as String
 }, { timestamps: true });
 
