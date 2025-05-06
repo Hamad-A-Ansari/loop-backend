@@ -6,10 +6,39 @@ import Timezone from '../models/timezone.model.js';
 import Report from '../models/report.model.js';
 import moment from 'moment-timezone'; // You will need this
 
-
 //switching to fast-csv for better results
 import { format } from 'fast-csv';
 import path from 'path';
+
+
+/**
+ * Filename: reportGenerator.js
+ * Description: Core logic for computing store uptime/downtime over the last hour, day, and week
+ *              and generating corresponding CSV reports.
+ * 
+ * Key Functions:
+ * - getBusinessHours: Retrieves business hours for a specific store and date.
+ * - computeUptimeDowntime: Interpolates and computes uptime/downtime across a time interval,
+ *   considering store-specific business hours.
+ * - generateCSVReport: Orchestrates status data processing and writes the final report as a CSV file.
+ * - triggerReportGeneration: Creates a new report entry and asynchronously starts generation.
+ * 
+ * Notes:
+ * - Uses latest status timestamp as the "current time" reference for calculating intervals.
+ * - Assumes stores without defined business hours are open 24/7.
+ * - All timestamps are handled in UTC, with business hours localized per store's timezone.
+ * 
+ * Dependencies:
+ * - moment, moment-timezone: Time manipulation
+ * - fast-csv: CSV generation
+ * - fs, path: File system operations
+ * - uuid: Unique ID generation
+ * - Mongoose Models: StoreStatus, MenuHours, Timezone, Report
+ * 
+ * Author: Hamad A. Ansari
+ * Last Updated: 6 May 2025
+ */
+
 
 
 const getBusinessHours = async (storeId, date, timezone) => {
@@ -59,7 +88,7 @@ const generateCSVReport = async (reportId) => {
         timestamp_utc: { $gte: sevenDaysAgo.toDate(), $lte: currentTime.toDate() }
       }).sort({ timestamp_utc: 1 });    
 
-      
+
       console.log(`[${storeId}] statuses fetched: ${statusData.length}`);
 
       if (statusData.length === 0) continue;

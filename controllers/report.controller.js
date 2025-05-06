@@ -3,6 +3,24 @@ import { triggerReportGeneration } from '../utils/reportGenerator.js';
 import path from 'path';
 import fs from 'fs';
 
+/**
+ * Filename: report.controller.js
+ * Description: Handles API endpoints related to generating and fetching reports.
+ * 
+ * Functions:
+ * - triggerReport: Initiates report generation process and returns a report ID.
+ * - getReport: Fetches report CSV file for download based on report ID.
+ * 
+ * Dependencies:
+ * - Mongoose: For accessing report metadata
+ * - File System: For serving report files
+ * 
+ * Author: Hamad A. Ansari
+ * Last Updated: 6 May 2025
+ */
+
+
+
 export const triggerReport = async (req, res, next) => {
   try {
     const { store_id } = req.body;

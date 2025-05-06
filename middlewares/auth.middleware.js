@@ -3,6 +3,18 @@ import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 
 
+/**
+ * Filename: auth.middleware.js
+ * Description: Middleware to authenticate requests using JSON Web Tokens (JWT).
+ * 
+ * Function:
+ * - authorize: Verifies JWT from request headers and attaches the user payload to req.user.
+ * 
+ * Purpose:
+ * - Protects private routes from unauthorized access.
+ */
+
+
 const authorize = async (req, res, next) => {
   try {
     let token;

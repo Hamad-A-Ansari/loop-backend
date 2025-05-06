@@ -18,6 +18,21 @@ import authorize from './middlewares/auth.middleware.js';
 import { PORT } from './config/env.js';
 
 
+//File-Comment
+/**
+ * Filename: app.js
+ * Description: Main entry point of the Express server application.
+ * 
+ * Features:
+ * - Sets up middleware (JSON parsing, cookie-parser, CORS, Arcjet).
+ * - Mounts route files for auth, report, and CSV import endpoints.
+ * - Handles global error responses.
+ * 
+ * Purpose:
+ * - Initializes the server and connects core middleware, routes, and security layers.
+ */
+
+
 // Starting point
 const app = express();
 
@@ -42,8 +57,8 @@ app.use('/api/v1/auth', authRouter);
 
 
 // Protected API routes
-app.use('/api/v1/importCsv', importRouter)
-app.use('/api/v1/reports', reportRouter);
+app.use('/api/v1/importCsv', authorize, importRouter)
+app.use('/api/v1/reports', authorize, reportRouter);
 
 
 //Middleware for Error handling

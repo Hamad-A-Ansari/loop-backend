@@ -3,6 +3,22 @@ import MenuHours from "../models/menuHours.model.js";
 import StoreStatus from "../models/storeStatus.model.js";
 import Timezone from "../models/timezone.model.js";
 
+/**
+ * Filename: import.controller.js
+ * Description: Handles CSV import logic for uploading historical store data.
+ * 
+ * Functions:
+ * - importCSV: Uploads and parses CSV data for StoreStatus, MenuHours, etc.
+ * 
+ * Dependencies:
+ * - CSV Parser: csvtojson
+ * - Mongoose Models: StoreStatus, MenuHours, Timezone
+ * 
+ * Author: Hamad A. Ansari
+ * Last Updated: 6 May 2025
+ */
+
+
 export const importCSV = async (req, res, next) => {
   try {
     if (!req.file) {

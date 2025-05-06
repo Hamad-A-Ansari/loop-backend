@@ -1,6 +1,20 @@
 import mongoose from "mongoose";
 import validator from "validator";
 
+/**
+ * Filename: user.model.js
+ * Description: Mongoose schema for storing user authentication details.
+ * 
+ * Fields:
+ * - name: String
+ * - email: String (unique)
+ * - password: Hashed string
+ * 
+ * Author: Hamad A. Ansari
+ * Last Updated: 6 May 2025
+ */
+
+
 const userSchema = new mongoose.Schema({
   name: {
     type: String,

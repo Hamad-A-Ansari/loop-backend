@@ -4,6 +4,26 @@ import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 
+/**
+ * Filename: auth.controller.js
+ * Description: Controller for handling user authentication logic (sign-up, sign-in, sign-out)
+ * 
+ * Functions:
+ * - signUp: Creates a new user with hashed password and returns a JWT token.
+ * - signIn: Validates user credentials and returns a JWT token.
+ * - signOut: Instructs client to delete token (no server-side invalidation).
+ * 
+ * Dependencies:
+ * - Mongoose: For DB transactions and sessions
+ * - Bcryptjs: Password hashing
+ * - JWT: Token generation
+ * 
+ * Author: Hamad A. Ansari
+ * Last Updated: 6 May 2025
+ */
+
+
+
 // Controller for api/v1/auth/auth-path
 
 export const signUp = async (req, res, next) => {
@@ -105,6 +125,13 @@ export const signIn = async (req, res, next) => {
 };
 
 export const signOut = async (req, res, next) => {
-  //Implement sign out logic here
-  
+  try {
+    // Instruct client to remove token (e.g., from localStorage or cookies)
+    res.status(200).json({
+      success: true,
+      message: "User signed out successfully.",
+    });
+  } catch (error) {
+    next(error);
+  }
 };

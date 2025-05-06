@@ -1,5 +1,18 @@
 import aj from "../config/arcjet.js";
 
+/**
+ * Filename: arcjet.middleware.js
+ * Description: Middleware to integrate Arcjet’s bot protection and rate-limiting logic.
+ * 
+ * Functionality:
+ * - Applies Arcjet protection to requests using API keys and threat analysis.
+ * - Used globally in app.js to secure all routes.
+ * 
+ * Purpose:
+ * - Provides real-time protection against bots, abuse, and DDoS-like behavior.
+ */
+
+
 const arcjetMiddleware = async (req, res, next) => {
   try {
     const decision = await aj.protect(req, { requested: 1});

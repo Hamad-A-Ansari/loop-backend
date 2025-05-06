@@ -1,3 +1,16 @@
+
+/**
+ * Filename: error.middleware.js
+ * Description: Centralized Express middleware for catching and handling errors in the API.
+ * 
+ * Function:
+ * - errorMiddleware: Sends appropriate HTTP status and error messages for thrown exceptions.
+ * 
+ * Purpose:
+ * - Ensures consistent error responses across all routes and services.
+ */
+
+
 const errorMiddleware = (err, req, res, next) => {
   try {
     let error = { ...err };
