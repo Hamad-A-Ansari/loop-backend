@@ -4,7 +4,7 @@ import MenuHours from '../models/menuHours.model.js';
 import StoreStatus from '../models/storeStatus.model.js';
 import Timezone from '../models/timezone.model.js';
 import Report from '../models/report.model.js';
-import moment from 'moment-timezone'; // You will need this
+import moment from 'moment-timezone';
 
 //switching to fast-csv for better results
 import { format } from 'fast-csv';
